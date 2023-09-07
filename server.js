@@ -34,7 +34,7 @@ app.get("/revisit", getRevisit);
 app.get("/pendingMedication", getPendingMedication);
 app.get("/", (req, res) => {
   // res.send("this is main route of api");
-  res.redirect("http://localhost:3000/");
+  res.send("home");
 });
 
 app.get("/blogs", (req, res) => {
