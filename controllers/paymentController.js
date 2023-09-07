@@ -86,8 +86,9 @@ export const verifyPayment = async (req, res) => {
 
       currentAppointment.personal.payments.push(newPayment.id);
       currentAppointment.save();
+      // `http://localhost:3000/paymentSuccess?ref=${razorpay_payment_id}`
       return res.redirect(
-        `http://localhost:3000/paymentSuccess?ref=${razorpay_payment_id}`
+        `https://homeozfrontend.vercel.app/paymentSuccess?ref=${razorpay_payment_id}`
       );
     } else {
       // console.log("false");
@@ -100,7 +101,7 @@ export const verifyPayment = async (req, res) => {
       });
       currentAppointment.personal.payments.push(newPayment.id);
       currentAppointment.save();
-      return res.redirect(`http://localhost:3000/falied-payment`);
+      return res.redirect(`https://homeozfrontend.vercel.app/falied-payment`);
     }
   } catch (err) {
     res.send(err);
