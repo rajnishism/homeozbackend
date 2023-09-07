@@ -7,6 +7,7 @@ import blogs from "./routes/blogs.js";
 import appointment from "./routes/appointments.js";
 import payment from "./routes/payment.js";
 import dotenv from "dotenv";
+import cors from "cors"
 dotenv.config();
 import { Blog } from "./db/models/blogSchema.js";
 import {
@@ -20,6 +21,7 @@ connectDB();
 
 
 // Body-parser middleware
+app.use(cors())
 app.use(bodyparser.urlencoded({ extended: false }));
 app.use(bodyparser.json());
 
