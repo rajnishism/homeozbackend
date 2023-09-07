@@ -6,6 +6,8 @@ import content from "./routes/content.js";
 import blogs from "./routes/blogs.js";
 import appointment from "./routes/appointments.js";
 import payment from "./routes/payment.js";
+import dotenv from "dotenv";
+dotenv.config();
 import { Blog } from "./db/models/blogSchema.js";
 import {
   getPaidAppointments,
@@ -15,10 +17,7 @@ import {
 } from "./controllers/appointments.js";
 
 connectDB();
-const PORT = process.env.PORT || 4100;
-app.listen(PORT, () => {
-  console.log(`listening on port ${PORT}`);
-});
+
 
 // Body-parser middleware
 app.use(bodyparser.urlencoded({ extended: false }));
@@ -49,4 +48,9 @@ app.get("/blogs", (req, res) => {
 
 app.post("/test", (req, res) => {
   res.send(req.body.name);
+});
+
+const PORT = process.env.PORT || 4100;
+app.listen(PORT, () => {
+  console.log(`listening on port ${PORT}`);
 });
