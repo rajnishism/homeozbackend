@@ -1,25 +1,40 @@
 import Razorpay from "razorpay";
+import crypto from "crypto";
+
 import { Appointement } from "../db/models/appointmentSchema.js";
 import { Payment } from "../db/models/payments.js";
-import crypto from "crypto";
-import { type } from "os";
+import { updateAppointmentTimeStats } from "../services/appointmentTimeStats.service.js";
+
+/* ======================================================
+   RAZORPAY CONFIGURATION
+   ====================================================== */
+
 const razorpay = new Razorpay({
   key_id: "rzp_test_wnTfrZx6ogS5Ge",
   key_secret: "GneHyAZ9Kx4tEvSITAy4SrXJ",
 });
 
+/* ======================================================
+   CREATE ORDER
+   - Creates appointment (PENDING payment)
+   - Creates Razorpay order
+   ====================================================== */
+
 export const createOrder = async (req, res) => {
+  console.log("🟢 CREATE ORDER API HIT");
+
   try {
     const { data, fee } = req.body;
-    // let allApointMent=await Appointement.find({});
-    // console.log(allApointMent.length);
-    // let aid=`Homeoz000${allApointMent.length+1}`
-    // console.log(aid);
-    const date = new Date();
+    console.log("📥 Request body:", data, "Fee:", fee);
+
+    /* ---------- Step 1: Booking date ---------- */
+    const bookingDate = new Date();
+    console.log("📅 Booking date:", bookingDate);
+
+    /* ---------- Step 2: Create appointment (pending) ---------- */
     const newAppointment = await Appointement.create({
       personal: {
         name: data.name,
-
         age: data.age,
         gender: data.gender,
         phone: data.phone,
@@ -27,135 +42,176 @@ export const createOrder = async (req, res) => {
       },
       consultation: [
         {
-          dateOfBooking: date,
+          dateOfBooking: bookingDate,
         },
       ],
     });
-    if (!newAppointment) {
-      console.log("Error");
-    }
-    // console.log(newAppointment);
-    const amount = Number(fee * 100); // Amount in paisa (e.g., 10000 paisa = 100 INR)
-    const currency = "INR";
+
+    console.log("💾 Appointment created:", newAppointment._id);
+
+    /* ---------- Step 3: Create Razorpay order ---------- */
+    const amount = Number(fee * 100); // INR → paisa
     const options = {
       amount,
-      currency,
-      // You can generate a unique receipt ID here
+      currency: "INR",
     };
 
+    console.log("💳 Creating Razorpay order...");
     const order = await razorpay.orders.create(options);
-    // console.log(order);
-    //   res.send("added");
+    console.log("💳 Razorpay order created:", order.id);
+
+    /* ---------- Step 4: Respond to frontend ---------- */
     return res.status(200).json({
-      message: "Success",
-      data: order,
-      aid: newAppointment._id,
+      message: "Order created",
+      order,
+      appointmentId: newAppointment._id,
     });
   } catch (err) {
-    console.log(err);
-    res.send(err);
+    console.error("❌ Error in createOrder:", err);
+    return res.status(500).json({ error: err.message });
   }
 };
+
+/* ======================================================
+   VERIFY PAYMENT
+   - Verifies Razorpay signature
+   - Saves payment
+   - Updates appointment stats (ONLY on success)
+   ====================================================== */
 
 export const verifyPayment = async (req, res) => {
+  console.log("🟢 VERIFY PAYMENT API HIT");
+
   try {
-    // console.log(req.body);
-    const fulliId = req.params.id.split(".");
-    const aid = fulliId[0];
-    let currentAppointment = await Appointement.findById(aid);
-    const amount = Number(fulliId[1]);
-    let secret = "GneHyAZ9Kx4tEvSITAy4SrXJ";
-    const razorpay_payment_id = req.body.razorpay_payment_id;
-    const order_id = req.body.razorpay_order_id;
-    const razorpay_signature = req.body.razorpay_signature;
-    const final = order_id + "|" + razorpay_payment_id;
-    const generated_signature = crypto
+    /* ---------- Step 1: Extract appointmentId & amount ---------- */
+    const [appointmentId, amountStr] = req.params.id.split(".");
+    const amount = Number(amountStr);
+
+    console.log("🔍 Appointment ID:", appointmentId, "Amount:", amount);
+
+    const appointment = await Appointement.findById(appointmentId);
+    if (!appointment) {
+      console.warn("⚠️ Appointment not found");
+      return res.status(404).send("Appointment not found");
+    }
+
+    /* ---------- Step 2: Razorpay signature verification ---------- */
+    const { razorpay_payment_id, razorpay_order_id, razorpay_signature } =
+      req.body;
+
+    const secret = "GneHyAZ9Kx4tEvSITAy4SrXJ";
+    const payload = `${razorpay_order_id}|${razorpay_payment_id}`;
+
+    const generatedSignature = crypto
       .createHmac("sha256", secret)
-      .update(final.toString())
+      .update(payload)
       .digest("hex");
 
-    if (generated_signature === razorpay_signature) {
-      //save transaction in db-:
-      let newPayment = await Payment.create({
+    /* ================= PAYMENT SUCCESS ================= */
+    if (generatedSignature === razorpay_signature) {
+      console.log("✅ Payment verified successfully");
+
+      /* ---------- Step 3: Save successful payment ---------- */
+      const payment = await Payment.create({
         paymentId: razorpay_payment_id,
-        orderId: order_id,
-        amount: amount,
+        orderId: razorpay_order_id,
+        amount,
         status: true,
-        user: currentAppointment.id,
+        user: appointment._id,
       });
 
-      currentAppointment.personal.payments.push(newPayment.id);
-      currentAppointment.save();
-      // `http://localhost:3000/paymentSuccess?ref=${razorpay_payment_id}`
+      appointment.personal.payments.push(payment._id);
+      await appointment.save();
+
+      console.log("💾 Payment saved:", payment._id);
+
+      /* ---------- Step 4: Update appointment time stats ---------- */
+      const bookingDate = appointment.consultation[0]?.dateOfBooking;
+
+      console.log("📊 Updating time stats for:", bookingDate);
+      await updateAppointmentTimeStats(bookingDate, +1);
+      console.log("✅ Time stats updated");
+
       return res.redirect(
-        `http://homeoz.in/paymentSuccess?ref=${razorpay_payment_id}`
+        `http://localhost:3000/paymentSuccess?ref=${razorpay_payment_id}`
       );
-    } else {
-      // console.log("false");
-      let newPayment = await Payment.create({
-        paymentId: razorpay_payment_id,
-        orderId: order_id,
-        amount: amount,
-        status: false,
-        user: currentAppointment.id,
-      });
-      currentAppointment.personal.payments.push(newPayment.id);
-      currentAppointment.save();
-      return res.redirect(`http://homeoz.in/falied-payment`);
     }
+
+    /* ================= PAYMENT FAILED ================= */
+    console.warn("❌ Payment verification failed");
+
+    const failedPayment = await Payment.create({
+      paymentId: razorpay_payment_id,
+      orderId: razorpay_order_id,
+      amount,
+      status: false,
+      user: appointment._id,
+    });
+
+    appointment.personal.payments.push(failedPayment._id);
+    await appointment.save();
+
+    return res.redirect(`http://localhost:3000/falied-payment`);
   } catch (err) {
-    res.send(err);
+    console.error("❌ Error in verifyPayment:", err);
+    return res.status(500).send(err.message);
   }
 };
 
-export const deleteAllPayments = async (req, res) => {
+/* ======================================================
+   PAYMENT UTILITIES
+   ====================================================== */
+
+/**
+ * Delete all payment records
+ */
+export const deleteAllPayments = async (_req, res) => {
   try {
-    let allPayments = await Payment.deleteMany({});
-    return res.status(200).json({
-      message: "All Payments",
-    });
+    await Payment.deleteMany({});
+    return res.status(200).json({ message: "All payments deleted" });
   } catch (error) {
-    console.log(error);
-    return res.status(501).json({
-      message: "Internal Server Error",
-    });
+    console.error(error);
+    return res.status(500).json({ message: "Internal Server Error" });
   }
 };
-export const getAllPayments = async (req, res) => {
+
+/**
+ * Get all successful payments
+ */
+export const getAllPayments = async (_req, res) => {
   try {
-    let allPayments = await Payment.find({ status: true });
+    const payments = await Payment.find({ status: true });
     return res.status(200).json({
-      message: "All Payments",
-      data: allPayments,
+      message: "All successful payments",
+      data: payments,
     });
   } catch (error) {
-    console.log(error);
-    return res.status(501).json({
-      message: "Internal Server Error",
-    });
+    console.error(error);
+    return res.status(500).json({ message: "Internal Server Error" });
   }
 };
+
+/**
+ * Get payments for a specific user
+ */
 export const getUserPayment = async (req, res) => {
   try {
-    let { name } = req.body;
-    // console.log(name);
-    let allPayments = await Appointement.findOne({
+    const { name } = req.body;
+
+    const appointment = await Appointement.findOne({
       "personal.name": name,
     }).populate("personal.payments");
-    if (!allPayments) {
-      return res.status(400).json({
-        message: "No Payment Found",
-      });
+
+    if (!appointment) {
+      return res.status(400).json({ message: "No Payment Found" });
     }
-    // console.log(allPayments);
+
     return res.status(200).json({
-      message: "All Payments",
-      data: allPayments,
+      message: "User payments",
+      data: appointment,
     });
   } catch (error) {
-    console.log(error);
-    return res.status(501).json({
-      message: "Internal Server Error",
-    });
+    console.error(error);
+    return res.status(500).json({ message: "Internal Server Error" });
   }
 };

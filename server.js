@@ -7,9 +7,10 @@ import blogs from "./routes/blogs.js";
 import appointment from "./routes/appointments.js";
 import payment from "./routes/payment.js";
 import dotenv from "dotenv";
-import cors from "cors"
+import cors from "cors";
 dotenv.config();
 import { Blog } from "./db/models/blogSchema.js";
+import appointmentTimeStatsRoutes from "./routes/appointmentTimeStats.routes.js";
 import {
   getPaidAppointments,
   getRevisit,
@@ -19,15 +20,15 @@ import {
 
 connectDB();
 
-
 // Body-parser middleware
-app.use(cors())
+app.use(cors());
 app.use(bodyparser.urlencoded({ extended: false }));
 app.use(bodyparser.json());
 
 app.use("/contents", content);
 app.use("/blogs", blogs);
 app.use("/appointment", appointment);
+app.use("/api/stats", appointmentTimeStatsRoutes);
 app.use("/pay", payment);
 app.get("/paidappointment", getPaidAppointments);
 app.get("/pendingConsultation", getPendingConsultation);
