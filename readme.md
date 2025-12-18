@@ -188,6 +188,12 @@ give us count of total appointment till today and with breakup like:
 
 ---
 
+/today Today’s full dashboard
+/?date=&type= Drill-down by date & type
+/by-date Trends & charts
+/summary Overall totals till now
+/age-range Filtered age analysis
+
 ## 🏁 Summary
 
 - Analytics are **accurate**
