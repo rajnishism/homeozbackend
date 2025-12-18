@@ -168,6 +168,24 @@ Returns **all analytics for today** in one API call.
 }
 ```
 
+GET /api/analytics/summary
+
+give us count of total appointment till today and with breakup like:
+{
+"totalAppointments": 3,
+"gender": {
+"male": 2,
+"female": 1
+},
+"age": {
+"21": 1,
+"122": 2
+},
+"status": {
+"paid": 3
+}
+}
+
 ---
 
 ## 🏁 Summary

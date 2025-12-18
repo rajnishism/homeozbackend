@@ -115,4 +115,45 @@ router.get("/today", async (req, res) => {
   }
 });
 
+router.get("/summary", async (req, res) => {
+  try {
+    /* ---------- Step 1: Fetch all analytics docs ---------- */
+    const docs = await AppointmentAnalytics.find({});
+
+    /* ---------- Step 2: Initialize accumulator ---------- */
+    const summary = {
+      totalAppointments: 0,
+      gender: {},
+      age: {},
+      status: {},
+    };
+
+    /* ---------- Step 3: Merge all documents ---------- */
+    for (const doc of docs) {
+      // Add to global total (use daily_total docs only)
+      if (doc.type === "daily_total") {
+        summary.totalAppointments += doc.total;
+        continue;
+      }
+
+      // Ensure section exists
+      if (!summary[doc.type]) {
+        summary[doc.type] = {};
+      }
+
+      // Merge counts
+      for (const [key, value] of doc.counts.entries()) {
+        summary[doc.type][key] = (summary[doc.type][key] || 0) + value;
+      }
+    }
+
+    return res.status(200).json(summary);
+  } catch (error) {
+    console.error("❌ Error generating analytics summary:", error);
+    return res.status(500).json({
+      message: "Failed to generate analytics summary",
+    });
+  }
+});
+
 export default router;
