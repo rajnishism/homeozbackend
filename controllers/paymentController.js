@@ -4,6 +4,7 @@ import crypto from "crypto";
 import { Appointement } from "../db/models/appointmentSchema.js";
 import { Payment } from "../db/models/payments.js";
 import { updateAppointmentTimeStats } from "../services/appointmentTimeStats.service.js";
+import { updateAnalyticsOnSuccessfulPayment } from "../services/appointmentAnalyticsUpdater.service.js";
 
 const base = "https://homeoz.in";
 
@@ -123,16 +124,27 @@ export const verifyPayment = async (req, res) => {
       });
 
       appointment.personal.payments.push(payment._id);
+
+      // OPTIONAL: explicitly mark appointment status as paid
+      appointment.status = "paid";
+
       await appointment.save();
 
       console.log("💾 Payment saved:", payment._id);
 
       /* ---------- Step 4: Update appointment time stats ---------- */
       const bookingDate = appointment.consultation[0]?.dateOfBooking;
-
       console.log("📊 Updating time stats for:", bookingDate);
       await updateAppointmentTimeStats(bookingDate, +1);
       console.log("✅ Time stats updated");
+
+      /* =====================================================
+     🔥 ANALYTICS UPDATE (ONLY ON SUCCESS)
+     ===================================================== */
+
+      await updateAnalyticsOnSuccessfulPayment(appointment);
+
+      console.log("📊 Analytics updated successfully");
 
       return res.redirect(`${base}/paymentSuccess?ref=${razorpay_payment_id}`);
     }
