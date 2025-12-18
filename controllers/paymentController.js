@@ -133,7 +133,7 @@ export const verifyPayment = async (req, res) => {
       console.log("✅ Time stats updated");
 
       return res.redirect(
-        `http://localhost:3000/paymentSuccess?ref=${razorpay_payment_id}`
+        `https://homeoz.in/paymentSuccess?ref=${razorpay_payment_id}`
       );
     }
 
@@ -151,7 +151,7 @@ export const verifyPayment = async (req, res) => {
     appointment.personal.payments.push(failedPayment._id);
     await appointment.save();
 
-    return res.redirect(`http://localhost:3000/falied-payment`);
+    return res.redirect(`https://homeoz.in//falied-payment`);
   } catch (err) {
     console.error("❌ Error in verifyPayment:", err);
     return res.status(500).send(err.message);
