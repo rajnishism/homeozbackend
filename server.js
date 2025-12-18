@@ -6,6 +6,7 @@ import content from "./routes/content.js";
 import blogs from "./routes/blogs.js";
 import appointment from "./routes/appointments.js";
 import payment from "./routes/payment.js";
+import analyticsRoutes from "./routes/appointmentAnalytics.routes.js";
 import dotenv from "dotenv";
 import cors from "cors";
 dotenv.config();
@@ -34,6 +35,8 @@ app.get("/paidappointment", getPaidAppointments);
 app.get("/pendingConsultation", getPendingConsultation);
 app.get("/revisit", getRevisit);
 app.get("/pendingMedication", getPendingMedication);
+app.use("/api/analytics", analyticsRoutes);
+
 app.get("/", (req, res) => {
   // res.send("this is main route of api");
   res.send("home");
