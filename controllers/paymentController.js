@@ -5,6 +5,8 @@ import { Appointement } from "../db/models/appointmentSchema.js";
 import { Payment } from "../db/models/payments.js";
 import { updateAppointmentTimeStats } from "../services/appointmentTimeStats.service.js";
 
+const base = "https://homeoz.in";
+
 /* ======================================================
    RAZORPAY CONFIGURATION
    ====================================================== */
@@ -132,9 +134,7 @@ export const verifyPayment = async (req, res) => {
       await updateAppointmentTimeStats(bookingDate, +1);
       console.log("✅ Time stats updated");
 
-      return res.redirect(
-        `https://homeoz.in/paymentSuccess?ref=${razorpay_payment_id}`
-      );
+      return res.redirect(`${base}/paymentSuccess?ref=${razorpay_payment_id}`);
     }
 
     /* ================= PAYMENT FAILED ================= */
@@ -151,7 +151,7 @@ export const verifyPayment = async (req, res) => {
     appointment.personal.payments.push(failedPayment._id);
     await appointment.save();
 
-    return res.redirect(`https://homeoz.in//falied-payment`);
+    return res.redirect(`${base}/falied-payment`);
   } catch (err) {
     console.error("❌ Error in verifyPayment:", err);
     return res.status(500).send(err.message);
